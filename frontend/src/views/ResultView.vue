@@ -2,13 +2,15 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAssessmentStore } from '../stores/assessment'
-import { RefreshCcw, Share2, CheckCircle2, Loader2 } from 'lucide-vue-next'
+import { RefreshCcw, Share2, CheckCircle2, Loader2, Download } from 'lucide-vue-next'
 import { toPng } from 'html-to-image'
 
 const router = useRouter()
 const store = useAssessmentStore()
 const reportRef = ref<HTMLElement | null>(null)
+const shareRef = ref<HTMLElement | null>(null)
 const isGenerating = ref(false)
+const isSharing = ref(false)
 
 const results = computed(() => store.results)
 const isChecking = ref(true)
@@ -26,10 +28,11 @@ onMounted(async () => {
 })
 
 const restart = () => {
+  store.reset()
   router.push('/')
 }
 
-const generateImage = async () => {
+const generateFullReport = async () => {
   if (!reportRef.value || isGenerating.value) return
   
   try {
@@ -37,25 +40,20 @@ const generateImage = async () => {
     // 等待 DOM 渲染和资源加载
     await new Promise(resolve => setTimeout(resolve, 800))
     
-    // 获取实际内容高度
-    const originalWidth = 450
-    const contentHeight = reportRef.value.scrollHeight
+    const width = reportRef.value.offsetWidth
+    const height = reportRef.value.offsetHeight
 
     const dataUrl = await toPng(reportRef.value, {
       backgroundColor: '#f8fafc',
-      pixelRatio: 2,
-      width: originalWidth,
-      height: contentHeight,
+      pixelRatio: 2.5, // 适当提高清晰度
+      width: width,
+      height: height,
+      canvasWidth: width * 2.5,
+      canvasHeight: height * 2.5,
       style: {
-        padding: '0',
-        margin: '0',
-        width: `${originalWidth}px`,
-        height: `${contentHeight}px`,
         transform: 'none',
-        left: '0',
-        top: '0',
-        display: 'flex', // 确保 flex 布局在截图中生效
-        flexDirection: 'column'
+        margin: '0',
+        padding: '0',
       }
     })
     
@@ -65,9 +63,46 @@ const generateImage = async () => {
     link.click()
   } catch (err) {
     console.error('Failed to generate image:', err)
-    alert('生成长图失败，请重试')
+    alert('生成报告失败，请重试')
   } finally {
     isGenerating.value = false
+  }
+}
+
+const generateShareImage = async () => {
+  if (!shareRef.value || isSharing.value) return
+  
+  try {
+    isSharing.value = true
+    // 增加等待时间确保渲染完成
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    const width = shareRef.value.offsetWidth
+    const height = shareRef.value.offsetHeight
+
+    const dataUrl = await toPng(shareRef.value, {
+      backgroundColor: '#f8fafc',
+      pixelRatio: 3, // 提高分享图片的清晰度
+      width: width,
+      height: height,
+      canvasWidth: width * 3,
+      canvasHeight: height * 3,
+      style: {
+        transform: 'none',
+        margin: '0',
+        padding: '0',
+      }
+    })
+    
+    const link = document.createElement('a')
+    link.download = `RPI-测评简版分享-${new Date().getTime()}.png`
+    link.href = dataUrl
+    link.click()
+  } catch (err) {
+    console.error('Failed to generate share image:', err)
+    alert('生成分享图片失败，请重试')
+  } finally {
+    isSharing.value = false
   }
 }
 
@@ -353,23 +388,102 @@ const dimensionNames: Record<string, string> = {
       </div>
     </div>
 
+    <!-- Simplified Share Image Container (Hidden) -->
+    <div class="fixed left-[-9999px] top-0 overflow-visible">
+      <div ref="shareRef" class="bg-slate-50 w-[450px] flex flex-col items-stretch">
+        <!-- Summary Header -->
+        <div class="flex flex-col items-center mb-8 pt-12 px-10">
+          <div class="inline-flex items-center space-x-2 px-3 py-1 bg-primary-50 rounded-full mb-4">
+            <CheckCircle2 class="w-4 h-4 text-primary-500" />
+            <span class="text-[10px] font-bold text-primary-600 uppercase tracking-widest">测评结果分享</span>
+          </div>
+          <h1 class="text-3xl font-black text-slate-800 leading-tight text-center">
+            综合占有欲指数
+          </h1>
+          <p class="text-slate-400 text-xs mt-2 font-medium">
+            基于：{{ store.mode === 'self' ? '自我测评' : '伴侣视角' }}
+          </p>
+        </div>
+
+        <!-- Overall Score Card -->
+        <div class="bg-white rounded-3xl p-10 shadow-sm border border-slate-100 mx-10 mb-8 flex flex-col items-center relative overflow-hidden">
+          <div class="relative z-10 text-center">
+            <div class="flex items-baseline justify-center mb-1">
+              <span class="text-7xl font-black text-slate-800 tracking-tighter">{{ results.overall.toFixed(1) }}</span>
+              <span class="text-xl font-bold text-slate-300 ml-2">/ 7.0</span>
+            </div>
+            <div class="inline-block px-5 py-1.5 rounded-full text-sm font-bold shadow-sm" :class="getScoreLevel(results.overall).bg + ' ' + getScoreLevel(results.overall).color">
+              {{ getScoreLevel(results.overall).label }}占有倾向
+            </div>
+          </div>
+          <!-- Decorative Background -->
+          <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-primary-50 rounded-full opacity-40"></div>
+          <div class="absolute -left-4 -top-4 w-16 h-16 bg-slate-50 rounded-full opacity-30"></div>
+        </div>
+
+        <!-- Dimension Scores Grid -->
+        <div class="grid grid-cols-2 gap-5 mx-10 mb-10">
+          <div 
+            v-for="(score, dimId) in results.dimensions" 
+            :key="dimId"
+            class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center text-center"
+          >
+            <div class="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-2">{{ dimensionNames[dimId] }}</div>
+            <div class="flex items-baseline justify-center space-x-0.5 mb-2">
+              <span class="text-2xl font-black text-slate-800">{{ score }}</span>
+              <span class="text-[8px] text-slate-300 font-bold tracking-tighter">/ 7.0</span>
+            </div>
+            <div class="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden">
+              <div 
+                class="h-full bg-primary-400 rounded-full"
+                :style="{ width: `${(score / 7) * 100}%` }"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Brand Footer -->
+        <div class="mt-auto pt-8 border-t border-slate-200 flex items-center justify-between pb-8 mx-10">
+          <div class="flex flex-col">
+            <div class="text-xl font-black text-slate-800 tracking-tight">RPI <span class="text-primary-500">占有欲测评</span></div>
+            <div class="text-[9px] text-slate-400 font-medium tracking-tight mt-0.5">了解关系边界，构建健康亲密关系</div>
+          </div>
+          <div class="text-[9px] text-slate-300 font-mono text-right leading-tight">
+            DATE: {{ new Date().toLocaleDateString() }}<br/>
+            ID: {{ Math.random().toString(36).substr(2, 6).toUpperCase() }}
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Action Buttons -->
-    <div class="flex space-x-4 mt-8">
+    <div class="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-lg border-t border-slate-100 z-40 max-w-2xl mx-auto flex space-x-2">
       <button 
         @click="restart"
-        class="flex-1 flex items-center justify-center space-x-2 bg-slate-200 text-slate-700 py-4 rounded-2xl font-bold active:scale-95 transition-transform"
+        class="flex-1 flex flex-col items-center justify-center space-y-1 bg-slate-100 text-slate-600 py-3 rounded-2xl font-bold active:scale-95 transition-transform"
       >
         <RefreshCcw class="w-5 h-5" />
-        <span>重新测评</span>
+        <span class="text-[10px]">重新测评</span>
       </button>
+      
       <button 
-        @click="generateImage"
+        @click="generateFullReport"
         :disabled="isGenerating"
-        class="flex-2 flex items-center justify-center space-x-2 bg-primary-500 text-white py-4 px-8 rounded-2xl font-bold active:scale-95 transition-all shadow-lg shadow-primary-200 disabled:opacity-70"
+        class="flex-2 flex items-center justify-center space-x-2 bg-slate-800 text-white py-3 px-6 rounded-2xl font-bold active:scale-95 transition-all disabled:opacity-70"
       >
-        <Loader2 v-if="isGenerating" class="w-5 h-5 animate-spin" />
-        <Share2 v-else class="w-5 h-5" />
-        <span>{{ isGenerating ? '正在生成...' : '保存分享图片' }}</span>
+        <Loader2 v-if="isGenerating" class="w-4 h-4 animate-spin" />
+        <Download v-else class="w-4 h-4" />
+        <span class="text-sm">{{ isGenerating ? '生成中...' : '下载报告' }}</span>
+      </button>
+
+      <button 
+        @click="generateShareImage"
+        :disabled="isSharing"
+        class="flex-2 flex items-center justify-center space-x-2 bg-primary-500 text-white py-3 px-6 rounded-2xl font-bold active:scale-95 transition-all shadow-lg shadow-primary-200 disabled:opacity-70"
+      >
+        <Loader2 v-if="isSharing" class="w-4 h-4 animate-spin" />
+        <Share2 v-else class="w-4 h-4" />
+        <span class="text-sm">{{ isSharing ? '生成中...' : '分享图片' }}</span>
       </button>
     </div>
   </div>

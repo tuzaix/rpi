@@ -173,6 +173,15 @@ export const useAssessmentStore = defineStore('assessment', {
 
     finishAssessment() {
       this.endTime = Date.now()
+    },
+
+    reset() {
+      this.answers = {}
+      this.currentQuestionIndex = 0
+      this.mode = 'self'
+      this.startTime = null
+      this.endTime = null
+      this.shuffledQuestions = []
     }
   }
 })
