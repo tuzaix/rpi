@@ -59,10 +59,21 @@ const generateKeys = async () => {
 }
 
 const toggleSelectAll = () => {
-  if (selectedKeys.value.length === authStore.licensePool.length) {
-    selectedKeys.value = []
+  const currentKeys = sortedKeys.value.map(k => k.key)
+  const allSelectedInCurrent = currentKeys.every(key => selectedKeys.value.includes(key))
+  
+  if (allSelectedInCurrent && currentKeys.length > 0) {
+    // 如果当前筛选出的都已选中，则取消选中当前这些
+    selectedKeys.value = selectedKeys.value.filter(key => !currentKeys.includes(key))
   } else {
-    selectedKeys.value = authStore.licensePool.map(k => k.key)
+    // 否则，选中当前筛选出的所有（保留之前已选中的其他筛选结果）
+    const newSelected = [...selectedKeys.value]
+    currentKeys.forEach(key => {
+      if (!newSelected.includes(key)) {
+        newSelected.push(key)
+      }
+    })
+    selectedKeys.value = newSelected
   }
 }
 
@@ -360,7 +371,7 @@ const isExpired = (dateStr?: string) => {
               <tr class="bg-slate-50">
                 <th class="px-6 py-4 w-12">
                   <button @click="toggleSelectAll" class="text-slate-400 hover:text-primary-500 transition-colors">
-                    <CheckSquare v-if="selectedKeys.length === authStore.licensePool.length && authStore.licensePool.length > 0" class="w-5 h-5 text-primary-500" />
+                    <CheckSquare v-if="sortedKeys.length > 0 && sortedKeys.every(k => selectedKeys.includes(k.key))" class="w-5 h-5 text-primary-500" />
                     <Square v-else class="w-5 h-5" />
                   </button>
                 </th>
