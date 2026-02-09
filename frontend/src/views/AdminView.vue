@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { Plus, Trash2, Key, Users, Calendar, Copy, CheckCircle, Shield, LogOut, Lock, Download, FileText, CheckSquare, Square, ChevronUp, ChevronDown, Search } from 'lucide-vue-next'
+import { Plus, Trash2, Key, Users, Copy, CheckCircle, LogOut, Lock, Download, FileText, CheckSquare, Square, ChevronUp, ChevronDown, Search } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
 
@@ -433,7 +433,7 @@ const isExpired = (dateStr: string) => {
                       <div 
                         v-for="i in Math.min(item.usedDevices.length, 3)" :key="i"
                         class="w-6 h-6 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center"
-                        :title="`设备ID: ${item.usedDevices[i-1].deviceId}\n绑定时间: ${formatDate(item.usedDevices[i-1].boundAt)}`"
+                        :title="item.usedDevices[i-1] ? `设备ID: ${item.usedDevices[i-1]?.deviceId}\n绑定时间: ${formatDate(item.usedDevices[i-1]?.boundAt ?? '')}` : ''"
                       >
                         <Users class="w-3 h-3 text-slate-500" />
                       </div>
