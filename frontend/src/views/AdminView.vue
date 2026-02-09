@@ -20,8 +20,8 @@ const handleLogin = () => {
 
 // 卡密管理相关
 const batchCount = ref(1)
-const days = ref(30)
-const maxDevices = ref(1)
+const days = ref(7)
+const maxDevices = ref(2)
 const lastGeneratedCount = ref(0)
 const selectedKeys = ref<string[]>([])
 const copiedKey = ref('')
@@ -142,6 +142,7 @@ const sortedKeys = computed(() => {
   if (filterExpiry.value !== 'all') {
     const now = new Date()
     filtered = filtered.filter(k => {
+      if (!k.expiryDate) return filterExpiry.value === 'valid' // 未激活视为有效
       const isExp = new Date(k.expiryDate) < now
       return filterExpiry.value === 'expired' ? isExp : !isExp
     })
@@ -153,7 +154,9 @@ const sortedKeys = computed(() => {
     if (sortBy.value === 'createdAt') {
       comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     } else if (sortBy.value === 'expiryDate') {
-      comparison = new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime()
+      const timeA = a.expiryDate ? new Date(a.expiryDate).getTime() : 0
+      const timeB = b.expiryDate ? new Date(b.expiryDate).getTime() : 0
+      comparison = timeA - timeB
     } else if (sortBy.value === 'deviceStatus') {
       const aUsage = a.usedDevices.length / a.maxDevices
       const bUsage = b.usedDevices.length / b.maxDevices
@@ -163,7 +166,8 @@ const sortedKeys = computed(() => {
   })
 })
 
-const isExpired = (dateStr: string) => {
+const isExpired = (dateStr?: string) => {
+  if (!dateStr) return false
   return new Date(dateStr) < new Date()
 }
 </script>
@@ -421,10 +425,16 @@ const isExpired = (dateStr: string) => {
                 </td>
                 <td class="px-6 py-4">
                   <div class="flex flex-col">
-                    <span class="text-sm font-medium" :class="isExpired(item.expiryDate) ? 'text-red-500' : 'text-slate-600'">
-                      {{ formatDate(item.expiryDate) }}
-                    </span>
-                    <span v-if="isExpired(item.expiryDate)" class="text-[10px] font-bold text-red-400 uppercase">已过期</span>
+                    <template v-if="item.expiryDate">
+                      <span class="text-sm font-medium" :class="isExpired(item.expiryDate) ? 'text-red-500' : 'text-slate-600'">
+                        {{ formatDate(item.expiryDate) }}
+                      </span>
+                      <span v-if="isExpired(item.expiryDate)" class="text-[10px] font-bold text-red-400 uppercase">已过期</span>
+                    </template>
+                    <template v-else>
+                      <span class="text-sm font-medium text-amber-500">待激活</span>
+                      <span class="text-[10px] font-bold text-slate-400 uppercase">时长: {{ item.validDays }}天</span>
+                    </template>
                   </div>
                 </td>
                 <td class="px-6 py-4">

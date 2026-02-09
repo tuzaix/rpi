@@ -1,6 +1,8 @@
 export interface LicenseKey {
   key: string;          // 卡密文本
-  expiryDate: string;   // 到期日期 (ISO string)
+  validDays: number;    // 有效时长 (天)
+  expiryDate?: string;  // 到期日期 (ISO string, 激活后设置)
+  activatedAt?: string; // 激活时间
   maxDevices: number;   // 最大授权设备数
   usedDevices: {        // 记录使用状态
     deviceId: string;

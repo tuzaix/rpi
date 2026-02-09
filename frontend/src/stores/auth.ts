@@ -56,7 +56,7 @@ export const useAuthStore = defineStore('auth', {
 
         newKeys.push({
           key,
-          expiryDate: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(),
+          validDays: days,
           maxDevices,
           usedDevices: [],
           createdAt: new Date().toISOString(),
@@ -96,37 +96,67 @@ export const useAuthStore = defineStore('auth', {
         return { success: false, message: '无效的卡密' }
       }
 
-      // 检查有效期
-      if (new Date(keyData.expiryDate) < new Date()) {
-        return { success: false, message: '卡密已过期' }
-      }
-
-      // 检查设备数
-      const existingDevice = (keyData.usedDevices as any[]).find(d => typeof d === 'object' ? d.deviceId === this.deviceId : d === this.deviceId)
-      if (!existingDevice) {
-        if (keyData.usedDevices.length >= keyData.maxDevices) {
-          return { success: false, message: '已达到最大授权设备数' }
-        }
+      // 1. 首次激活逻辑
+      if (!keyData.activatedAt) {
+        keyData.activatedAt = new Date().toISOString()
+        keyData.expiryDate = new Date(Date.now() + keyData.validDays * 24 * 60 * 60 * 1000).toISOString()
+        // 首次激活时，当前设备自动绑定
         keyData.usedDevices.push({
           deviceId: this.deviceId,
           boundAt: new Date().toISOString()
-        } as any)
+        })
+        await this.savePool()
+        this.currentKey = inputKey
+        localStorage.setItem(AUTH_SESSION_KEY, inputKey)
+        return { success: true, message: '卡密激活成功' }
+      }
+
+      // 2. 检查有效期 (仅对已激活的卡密)
+      if (keyData.expiryDate && new Date(keyData.expiryDate) < new Date()) {
+        return { success: false, message: '该卡密已过期' }
+      }
+
+      // 3. 检查设备绑定
+      const deviceBound = keyData.usedDevices.find(d => d.deviceId === this.deviceId)
+      if (!deviceBound) {
+        if (keyData.usedDevices.length >= keyData.maxDevices) {
+          return { success: false, message: '该卡密绑定的设备数已达上限' }
+        }
+        
+        // 绑定新设备
+        keyData.usedDevices.push({
+          deviceId: this.deviceId,
+          boundAt: new Date().toISOString()
+        })
         await this.savePool()
       }
 
       this.currentKey = inputKey
       localStorage.setItem(AUTH_SESSION_KEY, inputKey)
-      return { success: true, message: '验证成功' }
+      return { success: true, message: '验证通过' }
     },
 
     /**
      * 导出卡密到文件 (同时保存到 frontend/data 目录)
      */
     async exportToCSV(keys: LicenseKey[]) {
-      const header = '卡密,创建时间,到期时间,最大设备数,已用设备数,状态\n'
+      const header = '卡密,创建时间,激活时间,到期时间,有效天数,最大设备数,已用设备数,状态\n'
       const rows = keys.map(k => {
-        const status = new Date(k.expiryDate) < new Date() ? '已过期' : (k.usedDevices.length >= k.maxDevices ? '已满额' : '可用')
-        return `${k.key},${new Date(k.createdAt).toLocaleString()},${new Date(k.expiryDate).toLocaleString()},${k.maxDevices},${k.usedDevices.length},${status}`
+        let status = '未激活'
+        if (k.expiryDate) {
+          status = new Date(k.expiryDate) < new Date() ? '已过期' : (k.usedDevices.length >= k.maxDevices ? '已满额' : '使用中')
+        }
+        
+        return [
+          k.key,
+          new Date(k.createdAt).toLocaleString(),
+          k.activatedAt ? new Date(k.activatedAt).toLocaleString() : '-',
+          k.expiryDate ? new Date(k.expiryDate).toLocaleString() : '-',
+          k.validDays,
+          k.maxDevices,
+          k.usedDevices.length,
+          status
+        ].join(',')
       }).join('\n')
       
       const content = '\uFEFF' + header + rows
