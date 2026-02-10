@@ -40,20 +40,19 @@ const generateFullReport = async () => {
   
   try {
     isGenerating.value = true
-    // 等待 DOM 渲染和资源加载
-    await new Promise(resolve => setTimeout(resolve, 800))
+    // 增加等待时间，确保移动端图标和字体渲染完成
+    await new Promise(resolve => setTimeout(resolve, 1500))
     
-    const width = reportRef.value.offsetWidth
+    const width = reportRef.value.offsetWidth || 450
     const height = reportRef.value.offsetHeight
 
     const dataUrl = await toJpeg(reportRef.value, {
       backgroundColor: '#f8fafc',
-      pixelRatio: 2.5, // 适当提高清晰度
-      quality: 0.95,
+      pixelRatio: 2, // 移动端 2 倍率足够清晰且内存友好
+      quality: 0.9,
+      cacheBust: true, // 强制刷新缓存，避免图标不显示
       width: width,
       height: height,
-      canvasWidth: width * 2.5,
-      canvasHeight: height * 2.5,
       style: {
         transform: 'none',
         margin: '0',
@@ -61,12 +60,16 @@ const generateFullReport = async () => {
       }
     })
     
+    if (!dataUrl || dataUrl.length < 1000) {
+      throw new Error('Generated image is too small or empty')
+    }
+    
     previewImageUrl.value = dataUrl
     previewTitle.value = '长图报告'
     isPreviewOpen.value = true
   } catch (err) {
     console.error('Failed to generate image:', err)
-    alert('生成报告失败，请重试')
+    alert('生成报告失败，请尝试刷新页面重试')
   } finally {
     isGenerating.value = false
   }
@@ -77,20 +80,19 @@ const generateShareImage = async () => {
   
   try {
     isSharing.value = true
-    // 增加等待时间确保渲染完成
-    await new Promise(resolve => setTimeout(resolve, 500))
+    // 增加等待时间
+    await new Promise(resolve => setTimeout(resolve, 1000))
     
-    const width = shareRef.value.offsetWidth
+    const width = shareRef.value.offsetWidth || 450
     const height = shareRef.value.offsetHeight
 
     const dataUrl = await toJpeg(shareRef.value, {
       backgroundColor: '#f8fafc',
-      pixelRatio: 3, // 提高分享图片的清晰度
-      quality: 0.95,
+      pixelRatio: 2,
+      quality: 0.9,
+      cacheBust: true,
       width: width,
       height: height,
-      canvasWidth: width * 3,
-      canvasHeight: height * 3,
       style: {
         transform: 'none',
         margin: '0',
@@ -98,12 +100,16 @@ const generateShareImage = async () => {
       }
     })
     
+    if (!dataUrl || dataUrl.length < 1000) {
+      throw new Error('Generated image is too small or empty')
+    }
+    
     previewImageUrl.value = dataUrl
     previewTitle.value = '分享图'
     isPreviewOpen.value = true
   } catch (err) {
     console.error('Failed to generate share image:', err)
-    alert('生成分享图片失败，请重试')
+    alert('生成分享图片失败，请尝试刷新页面重试')
   } finally {
     isSharing.value = false
   }
@@ -131,9 +137,9 @@ const dimensionNames: Record<string, string> = {
     </div>
   </div>
   <div v-else-if="results" class="flex-1 flex flex-col max-w-2xl mx-auto w-full p-6 bg-slate-50 pb-20">
-    <!-- Image Capture Container (Hidden from web view, used for generation) -->
-    <div class="fixed left-[-9999px] top-0 overflow-visible">
-      <div ref="reportRef" class="bg-slate-50 flex flex-col w-[450px]">
+    <!-- Image Capture Container (Hidden but accessible for rendering tools) -->
+    <div class="fixed top-0 left-0 -z-50 opacity-0 pointer-events-none overflow-hidden" style="width: 1000px; height: 1px;">
+      <div class="bg-slate-50 flex flex-col w-[450px]" ref="reportRef">
         <!-- Summary Header -->
         <div class="text-center mb-8 pt-12 px-8">
           <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary-100 mb-4">
@@ -391,8 +397,8 @@ const dimensionNames: Record<string, string> = {
       </div>
     </div>
 
-    <!-- Simplified Share Image Container (Hidden) -->
-    <div class="fixed left-[-9999px] top-0 overflow-visible">
+    <!-- Simplified Share Image Container (Hidden but accessible) -->
+    <div class="fixed top-0 left-0 -z-50 opacity-0 pointer-events-none overflow-hidden" style="width: 1000px; height: 1px;">
       <div ref="shareRef" class="bg-slate-50 w-[450px] flex flex-col items-stretch">
         <!-- Summary Header -->
         <div class="flex flex-col items-center mb-8 pt-12 px-10">
