@@ -475,7 +475,7 @@ const dimensionNames: Record<string, string> = {
       >
         <Loader2 v-if="isGenerating" class="w-4 h-4 animate-spin" />
         <Download v-else class="w-4 h-4" />
-        <span class="text-sm">{{ isGenerating ? '生成中...' : '保存长图' }}</span>
+        <span class="text-sm">{{ isGenerating ? '生成中...' : '下载报告' }}</span>
       </button>
 
       <button 
