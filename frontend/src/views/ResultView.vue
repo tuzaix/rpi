@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAssessmentStore } from '../stores/assessment'
-import { RefreshCcw, Share2, CheckCircle2, Loader2, Download } from 'lucide-vue-next'
+import { RefreshCcw, Share2, CheckCircle2, Loader2, Download, X } from 'lucide-vue-next'
 import { toJpeg } from 'html-to-image'
 
 const router = useRouter()
@@ -11,6 +11,9 @@ const reportRef = ref<HTMLElement | null>(null)
 const shareRef = ref<HTMLElement | null>(null)
 const isGenerating = ref(false)
 const isSharing = ref(false)
+const previewImageUrl = ref('')
+const isPreviewOpen = ref(false)
+const previewTitle = ref('')
 
 const results = computed(() => store.results)
 const isChecking = ref(true)
@@ -58,10 +61,9 @@ const generateFullReport = async () => {
       }
     })
     
-    const link = document.createElement('a')
-    link.download = `RPI-测评长图报告-${new Date().getTime()}.jpg`
-    link.href = dataUrl
-    link.click()
+    previewImageUrl.value = dataUrl
+    previewTitle.value = '长图报告'
+    isPreviewOpen.value = true
   } catch (err) {
     console.error('Failed to generate image:', err)
     alert('生成报告失败，请重试')
@@ -96,10 +98,9 @@ const generateShareImage = async () => {
       }
     })
     
-    const link = document.createElement('a')
-    link.download = `RPI-测评简版分享-${new Date().getTime()}.jpg`
-    link.href = dataUrl
-    link.click()
+    previewImageUrl.value = dataUrl
+    previewTitle.value = '分享图'
+    isPreviewOpen.value = true
   } catch (err) {
     console.error('Failed to generate share image:', err)
     alert('生成分享图片失败，请重试')
@@ -488,5 +489,47 @@ const dimensionNames: Record<string, string> = {
         <span class="text-sm">{{ isSharing ? '生成中...' : '分享图片' }}</span>
       </button>
     </div>
+
+    <!-- Image Preview Modal -->
+    <Transition
+      enter-active-class="transition duration-300 ease-out"
+      enter-from-class="opacity-0 scale-95"
+      enter-to-class="opacity-100 scale-100"
+      leave-active-class="transition duration-200 ease-in"
+      leave-from-class="opacity-100 scale-100"
+      leave-to-class="opacity-0 scale-95"
+    >
+      <div v-if="isPreviewOpen" class="fixed inset-0 z-50 flex flex-col bg-slate-900/95 backdrop-blur-md p-4 sm:p-6">
+        <div class="flex justify-between items-center mb-4 text-white">
+          <div class="flex items-center space-x-2">
+            <div class="w-1 h-4 bg-primary-500 rounded-full"></div>
+            <h3 class="text-lg font-bold">{{ previewTitle }}预览</h3>
+          </div>
+          <button 
+            @click="isPreviewOpen = false" 
+            class="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
+          >
+            <X class="w-6 h-6" />
+          </button>
+        </div>
+        
+        <div class="flex-1 flex flex-col items-center justify-center min-h-0">
+          <div class="relative max-w-full max-h-[75vh] overflow-auto bg-white rounded-2xl shadow-2xl border-4 border-white/10">
+            <img :src="previewImageUrl" class="max-w-full h-auto block" alt="Preview" />
+          </div>
+          
+          <div class="mt-8 text-center text-white space-y-3 pb-6">
+            <div class="inline-flex items-center px-4 py-2 bg-primary-500/20 text-primary-400 rounded-full text-sm font-bold border border-primary-500/30">
+              <span class="animate-bounce mr-2">👆</span>
+              长按图片保存到相册
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              微信内置浏览器不支持直接下载<br/>
+              请长按图片后选择 <span class="text-white font-bold">“保存图片”</span> 或 <span class="text-white font-bold">“发送给朋友”</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
