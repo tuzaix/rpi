@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAssessmentStore } from '../stores/assessment'
-import { RefreshCcw, Share2, CheckCircle2, Loader2, Download } from 'lucide-vue-next'
+import { RefreshCcw, Share2, CheckCircle2, Loader2, Download, X } from 'lucide-vue-next'
 import { toPng } from 'html-to-image'
 
 const router = useRouter()
@@ -11,6 +11,10 @@ const reportRef = ref<HTMLElement | null>(null)
 const shareRef = ref<HTMLElement | null>(null)
 const isGenerating = ref(false)
 const isSharing = ref(false)
+
+const previewImageUrl = ref<string | null>(null)
+const showPreview = ref(false)
+const previewType = ref<'report' | 'share'>('report')
 
 const results = computed(() => store.results)
 const isChecking = ref(true)
@@ -57,10 +61,9 @@ const generateFullReport = async () => {
       }
     })
     
-    const link = document.createElement('a')
-    link.download = `RPI-测评长图报告-${new Date().getTime()}.png`
-    link.href = dataUrl
-    link.click()
+    previewImageUrl.value = dataUrl
+    previewType.value = 'report'
+    showPreview.value = true
   } catch (err) {
     console.error('Failed to generate image:', err)
     alert('生成报告失败，请重试')
@@ -94,10 +97,9 @@ const generateShareImage = async () => {
       }
     })
     
-    const link = document.createElement('a')
-    link.download = `RPI-测评简版分享-${new Date().getTime()}.png`
-    link.href = dataUrl
-    link.click()
+    previewImageUrl.value = dataUrl
+    previewType.value = 'share'
+    showPreview.value = true
   } catch (err) {
     console.error('Failed to generate share image:', err)
     alert('生成分享图片失败，请重试')
@@ -473,18 +475,62 @@ const dimensionNames: Record<string, string> = {
       >
         <Loader2 v-if="isGenerating" class="w-4 h-4 animate-spin" />
         <Download v-else class="w-4 h-4" />
-        <span class="text-sm">{{ isGenerating ? '生成中...' : '下载报告' }}</span>
+        <span class="text-sm">{{ isGenerating ? '生成中...' : '保存长图' }}</span>
       </button>
 
       <button 
         @click="generateShareImage"
         :disabled="isSharing"
-        class="flex-2 flex items-center justify-center space-x-2 bg-primary-500 text-white py-3 px-6 rounded-2xl font-bold active:scale-95 transition-all shadow-lg shadow-primary-200 disabled:opacity-70"
+        class="flex-1 flex flex-col items-center justify-center space-y-1 bg-primary-500 text-white py-3 rounded-2xl font-bold active:scale-95 transition-all disabled:opacity-70 shadow-lg shadow-primary-200"
       >
-        <Loader2 v-if="isSharing" class="w-4 h-4 animate-spin" />
-        <Share2 v-else class="w-4 h-4" />
-        <span class="text-sm">{{ isSharing ? '生成中...' : '分享图片' }}</span>
+        <Loader2 v-if="isSharing" class="w-5 h-5 animate-spin" />
+        <Share2 v-else class="w-5 h-5" />
+        <span class="text-[10px]">{{ isSharing ? '生成中...' : '分享卡片' }}</span>
       </button>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div 
+      v-if="showPreview" 
+      class="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md transition-opacity duration-300"
+      @click="showPreview = false"
+    >
+      <!-- Close Button -->
+      <button 
+        @click="showPreview = false"
+        class="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+      >
+        <X class="w-6 h-6" />
+      </button>
+
+      <!-- Preview Header -->
+      <div class="mb-6 text-center text-white" @click.stop>
+        <div class="inline-flex items-center px-3 py-1 bg-primary-500/20 text-primary-400 rounded-full text-xs font-bold mb-2">
+          已成功生成图片
+        </div>
+        <p class="text-lg font-bold">长按图片保存到相册</p>
+      </div>
+
+      <!-- Image Container -->
+      <div 
+        class="relative max-w-full max-h-[70vh] overflow-auto rounded-2xl shadow-2xl bg-white"
+        @click.stop
+      >
+        <img 
+          v-if="previewImageUrl" 
+          :src="previewImageUrl" 
+          class="block w-full h-auto pointer-events-auto"
+          alt="Preview"
+        />
+      </div>
+
+      <!-- Bottom Hint -->
+      <div class="mt-8 text-center text-slate-400 text-sm flex flex-col items-center" @click.stop>
+        <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mb-3 animate-bounce">
+          <Download class="w-4 h-4 text-white" />
+        </div>
+        <p>保存后可发送给好友或朋友圈</p>
+      </div>
     </div>
   </div>
 </template>
