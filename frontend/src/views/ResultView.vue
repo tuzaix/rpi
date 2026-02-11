@@ -2,11 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAssessmentStore } from '../stores/assessment'
+import { useAuthStore } from '../stores/auth'
 import { RefreshCcw, Share2, CheckCircle2, Loader2, Download, X } from 'lucide-vue-next'
 import { toJpeg } from 'html-to-image'
 
 const router = useRouter()
 const store = useAssessmentStore()
+const authStore = useAuthStore()
 const reportRef = ref<HTMLElement | null>(null)
 const shareRef = ref<HTMLElement | null>(null)
 const isGenerating = ref(false)
@@ -25,9 +27,16 @@ onMounted(async () => {
   if (!results.value) {
     console.warn('ResultView: No results found, redirecting to home.')
     router.push('/')
-  } else {
-    isChecking.value = false
+    return
   }
+
+  // 最终安全检查：如果没有卡密，退回首页（防止绕过验证）
+  if (!authStore.currentKey) {
+    router.push('/')
+    return
+  }
+  
+  isChecking.value = false
 })
 
 const restart = () => {

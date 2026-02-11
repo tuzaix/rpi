@@ -13,20 +13,15 @@ const authStore = useAuthStore()
 const showAuthModal = ref(false)
 const pendingRole = ref<'self' | 'partner' | null>(null)
 
-const startAssessment = async (role: 'self' | 'partner') => {
-  // 检查是否已经验证过有效的卡密
-  if (authStore.currentKey) {
-    // 简单验证现有卡密是否仍然有效
-    const result = await authStore.verifyKey(authStore.currentKey)
-    if (result.success) {
-      proceedToAssessment(role)
-      return
-    }
-  }
-  
-  // 需要验证
+const startAssessment = (role: 'self' | 'partner') => {
   pendingRole.value = role
-  showAuthModal.value = true
+  
+  // 检查是否已经有验证过的卡密
+  if (authStore.currentKey) {
+    proceedToAssessment(role)
+  } else {
+    showAuthModal.value = true
+  }
 }
 
 const proceedToAssessment = (role: 'self' | 'partner') => {
