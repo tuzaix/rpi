@@ -30,8 +30,21 @@ onMounted(async () => {
     return
   }
 
-  // 最终安全检查：如果没有卡密，退回首页（防止绕过验证）
+  // 最终安全检查：如果本地没有卡密，或者卡密验证不通过，退回首页（严防死守）
   if (!authStore.currentKey) {
+    router.push('/')
+    return
+  }
+  
+  try {
+    const result = await authStore.verifyKey(authStore.currentKey)
+    if (!result.success) {
+      console.warn('ResultView: Auth verification failed:', result.message)
+      router.push('/')
+      return
+    }
+  } catch (err) {
+    console.error('ResultView: Auth error:', err)
     router.push('/')
     return
   }

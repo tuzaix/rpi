@@ -1,50 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAssessmentStore } from '../stores/assessment'
 import { Heart, Shield, Users } from 'lucide-vue-next'
-import { useAuthStore } from '../stores/auth'
-import AccessControlModal from '../components/AccessControlModal.vue'
 
 const router = useRouter()
 const assessmentStore = useAssessmentStore()
-const authStore = useAuthStore()
-
-const showAuthModal = ref(false)
-const pendingRole = ref<'self' | 'partner' | null>(null)
 
 const startAssessment = (role: 'self' | 'partner') => {
-  pendingRole.value = role
-  
-  // 检查是否已经有验证过的卡密
-  if (authStore.currentKey) {
-    proceedToAssessment(role)
-  } else {
-    showAuthModal.value = true
-  }
-}
-
-const proceedToAssessment = (role: 'self' | 'partner') => {
   assessmentStore.startAssessment(role)
   router.push('/assessment')
-}
-
-const onAuthSuccess = () => {
-  showAuthModal.value = false
-  if (pendingRole.value) {
-    proceedToAssessment(pendingRole.value)
-  }
 }
 </script>
 
 <template>
   <div class="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 pb-12">
-    <!-- Auth Modal -->
-    <AccessControlModal 
-      :show="showAuthModal" 
-      @close="showAuthModal = false"
-      @success="onAuthSuccess"
-    />
     <div class="mb-8 animate-bounce">
       <Heart class="w-20 h-20 text-primary-500 fill-primary-500" />
     </div>

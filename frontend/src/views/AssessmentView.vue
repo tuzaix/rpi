@@ -34,39 +34,66 @@ const options = [
 const isTransitioning = ref(false)
 const showAuthModal = ref(false)
 const isSubmitting = ref(false)
+const isVerifying = ref(false)
+
+const isLastQuestion = computed(() => store.currentQuestionIndex === store.questions.length - 1)
 
 const handleNext = async () => {
-  if (store.currentQuestionIndex === store.questions.length - 1) {
-    // Check if everything is actually answered
-    if (store.isComplete) {
-      // 在提交前检查卡密
-      if (authStore.currentKey) {
-        const result = await authStore.verifyKey(authStore.currentKey)
-        if (result.success) {
-          submitAssessment()
-          return
-        }
-      }
-      
-      // 未验证或验证失效，显示验证弹窗
-      showAuthModal.value = true
-      isTransitioning.value = false // 确保弹窗关闭后可以再次交互
-    } else {
-      // Find the first unanswered question
-      const missingIndex = store.questions.findIndex(q => store.answers[q.id] === undefined)
-      if (missingIndex !== -1) {
-        store.currentQuestionIndex = missingIndex
-        alert('请完成所有题目后再提交')
-      }
-      isTransitioning.value = false
+  console.log('handleNext triggered, index:', store.currentQuestionIndex)
+  
+  // 如果是最后一题，handleNext 不再负责自动提交
+  if (isLastQuestion.value) {
+    console.log('Last question, waiting for manual submit')
+    isTransitioning.value = false
+    return
+  }
+
+  // 正常进入下一题
+  console.log('Moving to next question')
+  store.nextQuestion()
+  setTimeout(() => {
+    isTransitioning.value = false
+  }, 300)
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const handleFinalSubmit = async () => {
+  if (isVerifying.value || isSubmitting.value) return
+  
+  console.log('Manual submit triggered')
+  const isActuallyComplete = store.questions.every(q => store.answers[q.id] !== undefined)
+  
+  if (!isActuallyComplete) {
+    const missingIndex = store.questions.findIndex(q => store.answers[q.id] === undefined)
+    if (missingIndex !== -1) {
+      store.currentQuestionIndex = missingIndex
+      alert('请完成所有题目后再提交')
     }
-  } else {
-    store.nextQuestion()
-    // 延迟重置状态，等待过度动画完成
-    setTimeout(() => {
-      isTransitioning.value = false
-    }, 300)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    return
+  }
+
+  isVerifying.value = true
+  
+  try {
+    console.log('Verifying key before final submit, currentKey:', authStore.currentKey)
+    if (authStore.currentKey) {
+      const result = await authStore.verifyKey(authStore.currentKey)
+      console.log('Verification result:', result)
+      if (result.success) {
+        isVerifying.value = false
+        submitAssessment()
+        return
+      }
+    }
+    
+    // 验证失败或无卡密
+    console.log('Showing auth modal due to no key or failed verification')
+    isVerifying.value = false
+    showAuthModal.value = true
+  } catch (e) {
+    console.error('Verification error:', e)
+    isVerifying.value = false
+    showAuthModal.value = true
   }
 }
 
@@ -87,13 +114,19 @@ const handlePrev = () => {
 }
 
 const selectOption = (val: number) => {
-  if (isTransitioning.value) return
+  if (isTransitioning.value || isSubmitting.value || isVerifying.value) return
   
-  selectedValue.value = val
+  console.log('Option selected:', val)
+  // 记录答案
+  store.setAnswer(currentQuestion.value.id, val)
+  
+  // 开启切换锁
   isTransitioning.value = true
   
-  // Auto next with a small delay
-  setTimeout(handleNext, 400)
+  // 增加延迟，让用户看到选中效果
+  setTimeout(() => {
+    handleNext()
+  }, 400)
 }
 </script>
 
@@ -166,6 +199,22 @@ const selectOption = (val: number) => {
                 <div v-if="selectedValue === opt.value" class="w-2 h-2 bg-white rounded-full"></div>
               </div>
             </button>
+          </div>
+
+          <!-- 最后一题显示生成报告按钮 -->
+          <div v-if="isLastQuestion && selectedValue" class="mt-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <button 
+              @click="handleFinalSubmit"
+              :disabled="isVerifying || isSubmitting"
+              class="w-full py-4 bg-primary-500 text-white rounded-2xl font-bold shadow-lg shadow-primary-200 hover:bg-primary-600 active:scale-95 transition-all flex items-center justify-center space-x-2"
+            >
+              <Loader2 v-if="isVerifying || isSubmitting" class="w-5 h-5 animate-spin" />
+              <span>{{ (isVerifying || isSubmitting) ? '正在处理...' : '生成测评报告' }}</span>
+            </button>
+            <p class="text-center text-slate-400 text-xs mt-4 flex items-center justify-center">
+              <Info class="w-3 h-3 mr-1" />
+              点击即表示您同意生成基于本次回答的深度分析
+            </p>
           </div>
         </div>
       </transition>
