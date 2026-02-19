@@ -65,6 +65,33 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ success: false, error: err.message }))
       }
     })
+  } else if (req.url === '/api/config' && req.method === 'GET') {
+    const filePath = path.join(DATA_DIR, 'config.json')
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf-8')
+      res.setHeader('Content-Type', 'application/json')
+      res.end(data)
+    } else {
+      // 默认开启验证
+      res.setHeader('Content-Type', 'application/json')
+      res.end(JSON.stringify({ enableVerification: true }))
+    }
+  } else if (req.url === '/api/config' && req.method === 'POST') {
+    let body = ''
+    req.on('data', chunk => body += chunk)
+    req.on('end', () => {
+      try {
+        const filePath = path.join(DATA_DIR, 'config.json')
+        // 简单校验一下 JSON
+        JSON.parse(body)
+        fs.writeFileSync(filePath, body, 'utf-8')
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ success: true }))
+      } catch (err) {
+        res.statusCode = 500
+        res.end(JSON.stringify({ success: false, error: err.message }))
+      }
+    })
   } else {
     res.statusCode = 404
     res.end('Not Found')

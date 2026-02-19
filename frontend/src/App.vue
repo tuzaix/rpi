@@ -5,9 +5,9 @@ import { useAuthStore } from './stores/auth'
 
 const authStore = useAuthStore()
 
-onMounted(() => {
-  authStore.init()
-})
+// Initialize store immediately
+authStore.init()
+
 </script>
 
 <template>

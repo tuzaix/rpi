@@ -24,29 +24,34 @@ onMounted(async () => {
   // Give it a moment to ensure store state is fully settled
   await new Promise(resolve => setTimeout(resolve, 100))
   
+  // Ensure we have the latest config
+  await authStore.fetchConfig()
+
   if (!results.value) {
     console.warn('ResultView: No results found, redirecting to home.')
     router.push('/')
     return
   }
 
-  // 最终安全检查：如果本地没有卡密，或者卡密验证不通过，退回首页（严防死守）
-  if (!authStore.currentKey) {
-    router.push('/')
-    return
-  }
-  
-  try {
-    const result = await authStore.verifyKey(authStore.currentKey)
-    if (!result.success) {
-      console.warn('ResultView: Auth verification failed:', result.message)
+  // 最终安全检查：如果开启了验证，则本地没有卡密，或者卡密验证不通过，退回首页（严防死守）
+  if (authStore.verificationEnabled) {
+    if (!authStore.currentKey) {
       router.push('/')
       return
     }
-  } catch (err) {
-    console.error('ResultView: Auth error:', err)
-    router.push('/')
-    return
+    
+    try {
+      const result = await authStore.verifyKey(authStore.currentKey)
+      if (!result.success) {
+        console.warn('ResultView: Auth verification failed:', result.message)
+        router.push('/')
+        return
+      }
+    } catch (err) {
+      console.error('ResultView: Auth error:', err)
+      router.push('/')
+      return
+    }
   }
   
   isChecking.value = false

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { Plus, Trash2, Key, Users, Copy, CheckCircle, LogOut, Lock, Download, FileText, CheckSquare, Square, ChevronUp, ChevronDown, Search } from 'lucide-vue-next'
+import { Plus, Trash2, Key, Users, Copy, CheckCircle, LogOut, Lock, Download, FileText, CheckSquare, Square, ChevronUp, ChevronDown, Search, Settings } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
 
@@ -15,6 +15,17 @@ const handleLogin = () => {
     loginError.value = ''
   } else {
     loginError.value = '账号或密码错误'
+  }
+}
+
+// 全局设置相关
+const toggleVerification = async () => {
+  const newState = !authStore.verificationEnabled
+  const success = await authStore.updateVerificationConfig(newState)
+  if (success) {
+    triggerToast(newState ? '已开启卡密验证' : '已关闭卡密验证')
+  } else {
+    triggerToast('设置失败，请重试')
   }
 }
 
@@ -244,6 +255,30 @@ const isExpired = (dateStr?: string) => {
             class="text-sm font-bold text-red-600 hover:text-red-700 bg-red-50 px-4 py-2 rounded-xl shadow-sm border border-red-100 flex items-center"
           >
             <LogOut class="w-4 h-4 mr-1" /> 退出
+          </button>
+        </div>
+      </div>
+
+      <!-- Global Settings -->
+      <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8">
+        <h2 class="text-lg font-bold text-slate-800 mb-6 flex items-center">
+          <Settings class="w-5 h-5 mr-2 text-primary-500" /> 全局设置
+        </h2>
+        
+        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+          <div class="flex flex-col">
+            <span class="text-base font-bold text-slate-700">开启卡密验证</span>
+            <span class="text-sm text-slate-500 mt-1">关闭后，用户无需输入卡密即可直接生成报告</span>
+          </div>
+          <button 
+            @click="toggleVerification"
+            class="relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+            :class="authStore.verificationEnabled ? 'bg-primary-500' : 'bg-slate-300'"
+          >
+            <span 
+              class="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ease-in-out"
+              :class="authStore.verificationEnabled ? 'translate-x-6' : 'translate-x-1'"
+            />
           </button>
         </div>
       </div>

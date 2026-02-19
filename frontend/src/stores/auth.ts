@@ -12,14 +12,17 @@ export const useAuthStore = defineStore('auth', {
     licensePool: JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as LicenseKey[],
     currentKey: localStorage.getItem(AUTH_SESSION_KEY) || null as string | null,
     deviceId: getOrCreateDeviceId(),
-    isAdminAuthenticated: !!sessionStorage.getItem(ADMIN_SESSION_KEY)
+    isAdminAuthenticated: !!sessionStorage.getItem(ADMIN_SESSION_KEY),
+    verificationEnabled: true // 默认开启验证
   }),
 
   actions: {
     /**
-     * 从服务器加载卡密文件
+     * 从服务器加载配置和卡密
      */
     async init() {
+      await this.fetchConfig()
+      
       try {
         const response = await fetch('/api/keys')
         if (response.ok) {
@@ -31,6 +34,44 @@ export const useAuthStore = defineStore('auth', {
         }
       } catch (err) {
         console.error('Failed to load keys from server:', err)
+      }
+    },
+
+    /**
+     * 加载验证配置
+     */
+    async fetchConfig() {
+      try {
+        const response = await fetch('/api/config')
+        if (response.ok) {
+          const config = await response.json()
+          if (config && typeof config.enableVerification === 'boolean') {
+            this.verificationEnabled = config.enableVerification
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load config:', err)
+      }
+    },
+
+    /**
+     * 更新验证配置
+     */
+    async updateVerificationConfig(enable: boolean) {
+      try {
+        const response = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enableVerification: enable })
+        })
+        if (response.ok) {
+          this.verificationEnabled = enable
+          return true
+        }
+        return false
+      } catch (err) {
+        console.error('Failed to update config:', err)
+        return false
       }
     },
 

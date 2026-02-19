@@ -72,6 +72,13 @@ const handleFinalSubmit = async () => {
     return
   }
 
+  // 检查全局验证配置
+  if (!authStore.verificationEnabled) {
+    console.log('Global verification disabled, submitting directly')
+    submitAssessment()
+    return
+  }
+
   isVerifying.value = true
   
   try {
